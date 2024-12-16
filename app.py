@@ -84,8 +84,21 @@ def calculate_total_price(damage_data, subscription_data):
         if field != 'car_id' and damage in damage_cost:
             total_damage_cost += damage_cost[damage]
 
-    # Example subscription calculation (assuming price is per month)
-    months = subscription_data["end_month"] - subscription_data["start_month"]
+    # Ensure start_date and end_date are datetime objects
+    try:
+        start_date = datetime.strptime(subscription_data["start_date"], "%Y-%m-%d")
+        end_date = datetime.strptime(subscription_data["end_date"], "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("Start and end dates should be valid date strings in the format 'YYYY-MM-DD'.")
+
+    # Calculate the number of months between start_date and end_date
+    delta_years = end_date.year - start_date.year
+    delta_months = end_date.month - start_date.month
+    months = delta_years * 12 + delta_months
+
+    if months < 0:
+        raise ValueError("End date cannot be earlier than start date.")
+
     total_subscription_cost = months * subscription_data["price_per_month"]
 
     total_price = total_damage_cost + total_subscription_cost
@@ -95,6 +108,7 @@ def calculate_total_price(damage_data, subscription_data):
         "total_subscription_cost": total_subscription_cost,
         "total_price": total_price
     }
+
 
 @app.route('/calculate-total-price', methods=['POST'])
 def calculate_total_price_endpoint():
