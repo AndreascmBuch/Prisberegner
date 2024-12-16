@@ -57,44 +57,45 @@ def home():
 
 # Function to calculate the total price
 def calculate_total_price(damage_data, subscription_data):
-    damage_prices = {
-        "engine_damage": 5000,
-        "tire_damage": 1000,
-        "brake_damage": 1500,
-        "bodywork_damage": 4000,
-        "interior_damage": 2000,
-        "electronic_damage": 3000,
-        "glass_damage": 1200,
-        "undercarriage_damage": 2500,
-        "light_damage": 800,
+    # Example calculation logic
+    damage_cost = {
+        'none': 0,
+        'minor': 100,
+        'major': 500,
+        'puncture': 50,
+        'worn out': 75,
+        'bald': 100,
+        'squealing': 25,
+        'broken': 200,
+        'dent': 150,
+        'scratched': 100,
+        'torn': 50,
+        'stained': 75,
+        'cracked': 100,
+        'shattered': 250,
+        'scraped': 50,
+        'dented': 100,
+        'broken': 150,
+        'not working': 100
     }
 
     total_damage_cost = 0
+    for field, damage in damage_data.items():
+        if field != 'car_id' and damage in damage_cost:
+            total_damage_cost += damage_cost[damage]
 
-    # Iterate over the damage_data dictionary and calculate the total damage cost
-    for damage_type, status in damage_data.items():
-        # Check if the damage type exists in the damage_prices dictionary
-        if damage_type in damage_prices:
-            # Only add the cost if the damage status is not "none"
-            if status != "none":
-                total_damage_cost += damage_prices[damage_type]
-
-    # Calculate the subscription cost based on start and end date
-    start_date = datetime.strptime(subscription_data["start_month"], "%Y-%m-%d")
-    end_date = datetime.strptime(subscription_data["end_month"], "%Y-%m-%d")
-    months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+    # Example subscription calculation (assuming price is per month)
+    months = subscription_data["end_month"] - subscription_data["start_month"]
     total_subscription_cost = months * subscription_data["price_per_month"]
 
-    # Calculate the total price (damage cost + subscription cost)
     total_price = total_damage_cost + total_subscription_cost
 
     return {
         "total_damage_cost": total_damage_cost,
         "total_subscription_cost": total_subscription_cost,
-        "total_price": total_price,
+        "total_price": total_price
     }
 
-# Endpoint to calculate the total price
 @app.route('/calculate-total-price', methods=['POST'])
 def calculate_total_price_endpoint():
     data = request.json
@@ -106,26 +107,22 @@ def calculate_total_price_endpoint():
 
     try:
         # Fetch damage data from damage service
-        damage_response = requests.get(f"https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/damage/{car_id}")
+        damage_response = requests.get(f"https://damage-service-url.com/damage/{car_id}")
         damage_response.raise_for_status()
-        damage_data = damage_response.json()
+        damage_data = damage_response.json()[0] if damage_response.json() else {}
 
         # Fetch subscription data from subscription service
-        subscription_response = requests.get(f"https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/abonnement/{customer_id}")
+        subscription_response = requests.get(f"https://subscription-service-url.com/subscription/{customer_id}")
         subscription_response.raise_for_status()
         subscription_data = subscription_response.json()
-
-        # Validate subscription data
-        if not all(k in subscription_data for k in ("start_month", "end_month", "price_per_month")):
-            return jsonify({"error": "Missing required subscription data"}), 400
 
         # Calculate total price
         result = calculate_total_price(damage_data, subscription_data)
 
         # Log calculation in the database
-        conn = get_db_connection()
+        conn = sqlite3.connect("calculation_requests.db")
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(''' 
             INSERT INTO calculation_requests (
                 customer_id, car_id, start_date, end_date,
                 total_damage_cost, total_subscription_cost, total_price
