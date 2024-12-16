@@ -1,17 +1,62 @@
-from flask import Flask, request, jsonify
-import requests
-from datetime import datetime
+import os
 import sqlite3
+from flask import Flask, jsonify, request, g
+from datetime import datetime
+from dotenv import load_dotenv
+import requests
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Get DB_PATH from environment variable or use default
+DB_PATH = os.getenv('DB_PATH', 'calculation_service.db')
+DAMAGE_SERVICE_URL = os.getenv('DAMAGE_SERVICE_URL', 'https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/')
+SUBSCRIPTION_SERVICE_URL = os.getenv('SUBSCRIPTION_SERVICE_URL', 'https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/')
+
+# Initialize the Flask app
 app = Flask(__name__)
 
+# Function to get the database connection
+def get_db_connection():
+    if 'db' not in g:
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
+    return g.db
 
-def connect_db():
-    conn = sqlite3.connect('calculation_service.db')
-    conn.row_factory = sqlite3.Row  
-    return conn 
+# Close the database connection after the request is finished
+@app.teardown_appcontext
+def close_db(error):
+    if 'db' in g:
+        g.db.close()
 
-# Funktion til beregning
+# Ensure the database and table exist
+with sqlite3.connect(DB_PATH) as conn:
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS calculation_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
+            car_id INTEGER,
+            start_date TEXT,
+            end_date TEXT,
+            total_damage_cost REAL,
+            total_subscription_cost REAL,
+            total_price REAL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+
+# Home route
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        "service": "Calculation Service",
+        "version": "1.0.0",
+        "description": "A RESTful API for calculating total prices"
+    })
+
+# Function to calculate the total price
 def calculate_total_price(damage_data, subscription_data):
     damage_prices = {
         "engine_damage": 5000,
@@ -41,74 +86,66 @@ def calculate_total_price(damage_data, subscription_data):
         "total_price": total_price,
     }
 
-# Endpoint til beregning
+# Endpoint to calculate the total price
 @app.route('/calculate-total-price', methods=['POST'])
 def calculate_total_price_endpoint():
     data = request.json
-    customer_id = data["kunde_id"]
-    car_id = data["car_id"]
-    start_date = data["start_date"]
-    end_date = data["end_date"]
+    customer_id = data.get("customer_id")
+    car_id = data.get("car_id")
 
-    # Hent skadesdata fra skade-mikroservicen
-    damage_response = requests.get(f"https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/damage/{car_id}")
-    damage_data = damage_response.json()
+    if not customer_id or not car_id:
+        return jsonify({"error": "customer_id and car_id are required"}), 400
 
-    # Hent abonnementsdata fra abonnements-mikroservicen
-    subscription_response = requests.get(f"https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/abonnement/{customer_id}")
-    subscription_data = subscription_response.json()
+    try:
+        # Fetch damage data from damage service
+        damage_response = requests.get(f"{DAMAGE_SERVICE_URL}/{car_id}")
+        damage_response.raise_for_status()
+        damage_data = damage_response.json()
 
-    # Beregn samlet pris
-    result = calculate_total_price(damage_data, subscription_data)
+        # Fetch subscription data from subscription service
+        subscription_response = requests.get(f"{SUBSCRIPTION_SERVICE_URL}/{customer_id}")
+        subscription_response.raise_for_status()
+        subscription_data = subscription_response.json()
 
-    # Log beregningen i databasen
-    connection = sqlite3.connect("calculation_service.db")
-    cursor = connection.cursor()
-    cursor.execute('''
-        INSERT INTO calculation_requests (
-            customer_id, car_id, start_date, end_date,
-            total_damage_cost, total_subscription_cost, total_price
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        customer_id, car_id, start_date, end_date,
-        result["total_damage_cost"], result["total_subscription_cost"], result["total_price"]
-    ))
-    connection.commit()
-    connection.close()
+        # Calculate total price
+        result = calculate_total_price(damage_data, subscription_data)
 
-    return jsonify(result)
+        # Log calculation in the database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO calculation_requests (
+                customer_id, car_id, start_date, end_date,
+                total_damage_cost, total_subscription_cost, total_price
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            customer_id, car_id, subscription_data["start_month"], subscription_data["end_month"],
+            result["total_damage_cost"], result["total_subscription_cost"], result["total_price"]
+        ))
+        conn.commit()
 
+        return jsonify(result), 201
+
+    except requests.RequestException as e:
+        return jsonify({"error": f"Error fetching data from external services: {str(e)}"}), 500
+
+    except sqlite3.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+# Route to calculate total revenue
 @app.route('/calculate-total-revenue', methods=['GET'])
 def calculate_total_revenue():
-    # Forbind til databasen
-    connection = sqlite3.connect("calculation_service.db")
-    cursor = connection.cursor()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT SUM(total_price) AS total_revenue FROM calculation_requests')
+        result = cursor.fetchone()
+        total_revenue = result["total_revenue"] if result["total_revenue"] is not None else 0
+        return jsonify({"total_revenue": total_revenue})
 
-    # Beregn samlet omsætning
-    cursor.execute('''
-        SELECT SUM(total_price) AS total_revenue FROM calculation_requests
-    ''')
-    result = cursor.fetchone()
-    connection.close()
-
-    # Returner resultatet
-    total_revenue = result[0] if result[0] is not None else 0
-    return jsonify({"total_revenue": total_revenue})
-
-
-# test route så vi ikke får 404
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({
-        "service": "Payment Service",
-        "version": "1.0.0",
-        "description": "A RESTful API for managing payments"
-    })
-
-
+    except sqlite3.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
 
