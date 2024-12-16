@@ -4,6 +4,8 @@ from flask import Flask, jsonify, request, g
 from datetime import datetime
 from dotenv import load_dotenv
 import requests
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity 
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,6 +15,22 @@ DB_PATH = os.getenv('DB_PATH', 'calculation_service.db')
 
 # Initialize the Flask app
 app = Flask(__name__)
+
+# Configure JWT settings
+app.config['JWT_SECRET_KEY'] = os.getenv('KEY', 'your_secret_key')  # Load from .env
+app.config['JWT_TOKEN_LOCATION'] = ['headers']  # Ensure tokens are in headers
+app.config['JWT_HEADER_NAME'] = 'Authorization'  # Default header name for JWT
+app.config['JWT_HEADER_TYPE'] = 'Bearer'  # Prefix for the token (e.g., Bearer <token>)
+
+# Initialize the JWT manager
+jwt = JWTManager(app)
+
+@app.route('/debug', methods=['GET'])
+def debug():
+    return jsonify({
+        "JWT_SECRET_KEY": os.getenv('KEY', 'Not Set'),
+        "Database_Path": DB_PATH
+    }), 200
 
 # Function to get the database connection
 def get_db_connection():
@@ -112,6 +130,7 @@ def calculate_total_price(damage_data, subscription_data):
     }
 
 @app.route('/calculate-total-price', methods=['POST'])
+@jwt_required()
 def calculate_total_price_endpoint():
     data = request.json
     customer_id = data.get("customer_id")
@@ -161,6 +180,7 @@ def calculate_total_price_endpoint():
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 @app.route('/get-all-calculations', methods=['GET'])
+@jwt_required()
 def get_all_calculations():
     try:
         conn = get_db_connection()
@@ -178,6 +198,7 @@ def get_all_calculations():
 
 # Route to calculate total revenue
 @app.route('/calculate-total-revenue', methods=['GET'])
+@jwt_required()
 def calculate_total_revenue():
     try:
         conn = get_db_connection()
