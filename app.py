@@ -106,6 +106,10 @@ def calculate_total_price_endpoint():
         subscription_response.raise_for_status()
         subscription_data = subscription_response.json()
 
+        # Validate subscription data
+        if not all(k in subscription_data for k in ("start_month", "end_month", "price_per_month")):
+            return jsonify({"error": "Missing required subscription data"}), 400
+
         # Calculate total price
         result = calculate_total_price(damage_data, subscription_data)
 
@@ -130,6 +134,10 @@ def calculate_total_price_endpoint():
 
     except sqlite3.Error as e:
         return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
 
 # Route to calculate total revenue
 @app.route('/calculate-total-revenue', methods=['GET'])
