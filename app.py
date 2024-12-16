@@ -10,8 +10,8 @@ load_dotenv()
 
 # Get DB_PATH from environment variable or use default
 DB_PATH = os.getenv('DB_PATH', 'calculation_service.db')
-DAMAGE_SERVICE_URL = os.getenv('DAMAGE_SERVICE_URL', 'https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/')
-SUBSCRIPTION_SERVICE_URL = os.getenv('SUBSCRIPTION_SERVICE_URL', 'https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/')
+DAMAGE_SERVICE_URL = ('DAMAGE_SERVICE_URL', 'https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/')
+SUBSCRIPTION_SERVICE_URL =('SUBSCRIPTION_SERVICE_URL', 'https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/')
 
 # Initialize the Flask app
 app = Flask(__name__)
