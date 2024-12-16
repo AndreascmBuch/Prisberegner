@@ -69,16 +69,25 @@ def calculate_total_price(damage_data, subscription_data):
         "light_damage": 800,
     }
 
-    total_damage_cost = sum(
-        damage_prices[damage] for damage, status in damage_data.items() if status != "none"
-    )
+    total_damage_cost = 0
 
+    # Iterate over the damage_data dictionary and calculate the total damage cost
+    for damage_type, status in damage_data.items():
+        # Check if the damage type exists in the damage_prices dictionary
+        if damage_type in damage_prices:
+            # Only add the cost if the damage status is not "none"
+            if status != "none":
+                total_damage_cost += damage_prices[damage_type]
+
+    # Calculate the subscription cost based on start and end date
     start_date = datetime.strptime(subscription_data["start_month"], "%Y-%m-%d")
     end_date = datetime.strptime(subscription_data["end_month"], "%Y-%m-%d")
     months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
     total_subscription_cost = months * subscription_data["price_per_month"]
 
+    # Calculate the total price (damage cost + subscription cost)
     total_price = total_damage_cost + total_subscription_cost
+
     return {
         "total_damage_cost": total_damage_cost,
         "total_subscription_cost": total_subscription_cost,
