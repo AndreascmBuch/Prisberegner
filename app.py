@@ -11,7 +11,6 @@ load_dotenv()
 # Get DB_PATH from environment variable or use default
 DB_PATH = os.getenv('DB_PATH', 'calculation_service.db')
 
-
 # Initialize the Flask app
 app = Flask(__name__)
 
@@ -20,6 +19,7 @@ def get_db_connection():
     if 'db' not in g:
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
+        print(f"Created DB connection: {g.db}")  # Debugging output
     return g.db
 
 # Close the database connection after the request is finished
@@ -31,7 +31,7 @@ def close_db(error):
 # Ensure the database and table exist
 with sqlite3.connect(DB_PATH) as conn:
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute(''' 
         CREATE TABLE IF NOT EXISTS calculation_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_id INTEGER,
@@ -111,7 +111,6 @@ def calculate_total_price(damage_data, subscription_data):
         "total_price": total_price
     }
 
-
 @app.route('/calculate-total-price', methods=['POST'])
 def calculate_total_price_endpoint():
     data = request.json
@@ -136,8 +135,9 @@ def calculate_total_price_endpoint():
         result = calculate_total_price(damage_data, subscription_data)
 
         # Log calculation in the database
-        conn=get_db_connection()
+        conn = get_db_connection()  # Using the connection from g.db
         cursor = conn.cursor()
+        print(f"Inserting into database: {customer_id}, {car_id}, {subscription_data['start_month']}, {subscription_data['end_month']}, {result['total_damage_cost']}, {result['total_subscription_cost']}, {result['total_price']}")  # Debugging
         cursor.execute(''' 
             INSERT INTO calculation_requests (
                 customer_id, car_id, start_date, end_date,
