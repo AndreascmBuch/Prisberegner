@@ -136,7 +136,7 @@ def calculate_total_price_endpoint():
         result = calculate_total_price(damage_data, subscription_data)
 
         # Log calculation in the database
-        conn=get_db_connection
+        conn=get_db_connection()
         cursor = conn.cursor()
         cursor.execute(''' 
             INSERT INTO calculation_requests (
