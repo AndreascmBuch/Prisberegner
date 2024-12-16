@@ -107,12 +107,12 @@ def calculate_total_price_endpoint():
 
     try:
         # Fetch damage data from damage service
-        damage_response = requests.get(f"https://damage-service-url.com/damage/{car_id}")
+        damage_response = requests.get(f"https://skade-demo-b2awcyb4gedxdnhj.northeurope-01.azurewebsites.net/damage/{car_id}")
         damage_response.raise_for_status()
         damage_data = damage_response.json()[0] if damage_response.json() else {}
 
         # Fetch subscription data from subscription service
-        subscription_response = requests.get(f"https://subscription-service-url.com/subscription/{customer_id}")
+        subscription_response = requests.get(f"https://abonnement-beczhgfth9axdzd9.northeurope-01.azurewebsites.net/abonnement/{customer_id}")
         subscription_response.raise_for_status()
         subscription_data = subscription_response.json()
 
