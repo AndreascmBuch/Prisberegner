@@ -160,6 +160,21 @@ def calculate_total_price_endpoint():
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
+@app.route('/get-all-calculations', methods=['GET'])
+def get_all_calculations():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM calculation_requests')
+        calculations = cursor.fetchall()  # Hent alle rækker
+        # Konverter resultaterne til en liste af dictionaries
+        calculations_list = [dict(calculation) for calculation in calculations]
+        
+        return jsonify(calculations_list)
+
+    except sqlite3.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
 
 # Route to calculate total revenue
 @app.route('/calculate-total-revenue', methods=['GET'])
