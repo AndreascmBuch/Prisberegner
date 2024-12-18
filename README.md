@@ -1,183 +1,145 @@
-# Calculation Service
+# Beregningstjeneste
 
-## Introduction
-The **Calculation Service** is a RESTful microservice that calculates total prices for car rentals. It integrates with external microservices to fetch data on damages and subscriptions and provides endpoints for calculations, logging, and revenue tracking.
+## Introduktion
+Denne mikroservice er designet til at beregne samlede priser for skader og abonnementer i forbindelse med et biludlejningssystem. Den integrerer med eksterne tjenester for at hente data om skader og abonnementer og kombinerer disse for at give en samlet prisberegning.
 
-## Features
-- Fetches damage data from an external Damage Service.
-- Fetches subscription data from an external Subscription Service.
-- Calculates total price based on damage and subscription data.
-- Logs calculation requests in a SQLite database.
-- Provides endpoints to retrieve all calculations and total revenue.
-- Secured with JWT-based authentication.
+## Funktioner
+- Hent skadedata fra skadetjenesten.
+- Hent abonnementsdata fra abonnementstjenesten.
+- Beregn samlede priser baseret på skader og abonnementsperiode.
+- Log alle beregninger i en SQLite-database.
+- API-endpoints til at få adgang til beregningshistorik og total omsætning.
 
-## Technologies Used
-- **Python**: Core programming language.
-- **Flask**: Web framework for building RESTful APIs.
-- **SQLite**: Lightweight database for storing calculation logs.
-- **Gunicorn**: WSGI server for deployment.
-- **Docker**: Containerization for consistent deployments.
+## Teknologier
+- Flask: Webframework til at bygge API'en.
+- SQLite: Database til logning af beregningsdata.
+- Python-dotenv: Håndtering af miljøvariabler.
+- Flask-JWT-Extended: Håndtering af autentificering via JWT-tokens.
 
-## API Endpoints
-### Base URL
-```
-http://<host>:<port>/
-```
+## Forudsætninger
+Før du starter, skal følgende være installeret:
+- Python 3.10 eller nyere
+- Docker (hvis du vil køre tjenesten i en container)
 
-### Public Endpoints
-- **`GET /`**: Returns service information.
+## Opsætning
 
-### Authenticated Endpoints (JWT Required)
-1. **`POST /calculate-total-price`**
-   - **Description**: Calculates the total price for a car rental.
-   - **Request Body (JSON)**:
-     ```json
-     {
-       "customer_id": <int>,
-       "car_id": <int>
-     }
-     ```
-   - **Response (201)**:
-     ```json
-     {
-       "total_damage_cost": <float>,
-       "total_subscription_cost": <float>,
-       "total_price": <float>
-     }
-     ```
-
-2. **`GET /get-all-calculations`**
-   - **Description**: Retrieves all calculation logs.
-   - **Response (200)**:
-     ```json
-     [
-       {
-         "id": <int>,
-         "customer_id": <int>,
-         "car_id": <int>,
-         "start_date": <string>,
-         "end_date": <string>,
-         "total_damage_cost": <float>,
-         "total_subscription_cost": <float>,
-         "total_price": <float>,
-         "timestamp": <string>
-       }
-     ]
-     ```
-
-3. **`GET /calculate-total-revenue`**
-   - **Description**: Calculates the total revenue from all logged requests.
-   - **Response (200)**:
-     ```json
-     {
-       "total_revenue": <float>
-     }
-     ```
-
-4. **`GET /debug`**
-   - **Description**: Debug endpoint to check loaded environment variables.
-
-## Environment Variables
-Create a `.env` file with the following:
-```
-DB_PATH=calculation_service.db
-KEY=<your_secret_key>
-```
-
-## Database Schema
-The service uses a SQLite database with the following schema:
-```sql
-CREATE TABLE calculation_requests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    customer_id INTEGER,
-    car_id INTEGER,
-    start_date TEXT,
-    end_date TEXT,
-    total_damage_cost REAL,
-    total_subscription_cost REAL,
-    total_price REAL,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-## Prerequisites
-- Python 3.10+
-- Docker (for containerized deployment)
-
-## Installation
-1. Clone the repository:
+### Lokalt miljø
+1. Klon dette repository:
    ```bash
    git clone <repository-url>
-   cd <repository-folder>
+   cd <repository-mappen>
    ```
-2. Install dependencies:
+2. Opret et virtuelt miljø og installer afhængigheder:
    ```bash
+   python -m venv venv
+   source venv/bin/activate  # På Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-3. Create a `.env` file:
-   ```bash
-   echo "DB_PATH=calculation_service.db" > .env
-   echo "KEY=<your_secret_key>" >> .env
+3. Opret en `.env`-fil i roden af projektet og angiv miljøvariabler:
+   ```env
+   DB_PATH=calculation_service.db
+   KEY=din_hemmelige_nøgle
    ```
-
-## Running Locally
-1. Initialize the SQLite database:
-   ```bash
-   python skadeberegnerdatabase.py
-   ```
-2. Start the Flask application:
+4. Start applikationen:
    ```bash
    python app.py
    ```
-3. Access the API at `http://127.0.0.1:5000`.
 
-## Deployment with Docker
-1. Build the Docker image:
+### Docker
+1. Byg Docker-billedet:
    ```bash
-   docker build -t calculation-service .
+   docker build -t beregningstjeneste .
    ```
-2. Run the container:
+2. Kør containeren:
    ```bash
-   docker run -p 80:80 --env-file .env calculation-service
+   docker run -d -p 80:80 --env-file .env beregningstjeneste
    ```
 
-## External Dependencies
-### Damage Service
-- **Endpoint**: `GET /damage/{car_id}`
-- **Example Response**:
+## API-dokumentation
+
+### Endpoints
+
+#### `GET /`
+Returnerer information om tjenesten.
+
+#### `POST /calculate-total-price`
+Beregner den samlede pris for en kunde og en bil.
+
+- **Headers:**
+  - `Authorization: Bearer <jwt-token>`
+- **Body:**
   ```json
   {
-    "car_id": 1,
-    "tires": "worn out",
-    "engine": "none",
-    "brakes": "squealing"
+      "customer_id": 1,
+      "car_id": 101
+  }
+  ```
+- **Respons:**
+  ```json
+  {
+      "total_damage_cost": 200,
+      "total_subscription_cost": 600,
+      "total_price": 800
   }
   ```
 
-### Subscription Service
-- **Endpoint**: `GET /abonnement/{customer_id}`
-- **Example Response**:
+#### `GET /get-all-calculations`
+Henter alle beregninger fra databasen.
+
+- **Headers:**
+  - `Authorization: Bearer <jwt-token>`
+- **Respons:**
+  ```json
+  [
+      {
+          "id": 1,
+          "customer_id": 1,
+          "car_id": 101,
+          "start_date": "2024-01-01",
+          "end_date": "2024-03-01",
+          "total_damage_cost": 200,
+          "total_subscription_cost": 600,
+          "total_price": 800,
+          "timestamp": "2024-12-18T12:34:56"
+      }
+  ]
+  ```
+
+#### `GET /calculate-total-revenue`
+Beregner den samlede omsætning baseret på tidligere beregninger.
+
+- **Headers:**
+  - `Authorization: Bearer <jwt-token>`
+- **Respons:**
   ```json
   {
-    "customer_id": 123,
-    "start_month": "2024-01-01",
-    "end_month": "2024-03-01",
-    "price_per_month": 200
+      "total_revenue": 10000
   }
   ```
 
-## Testing
-- Use tools like Postman or Curl to test the API.
-- Generate JWT tokens for authenticated endpoints.
+## Database
+Tabellen `calculation_requests` oprettes automatisk, hvis den ikke allerede findes. Den indeholder følgende kolonner:
 
-## Known Issues
-- Ensure the external Damage and Subscription services are accessible.
-- JWT token expiration handling is not implemented.
+- `id`: Primær nøgle
+- `customer_id`: ID for kunden
+- `car_id`: ID for bilen
+- `start_date`: Startdato for abonnementet
+- `end_date`: Slutdato for abonnementet
+- `total_damage_cost`: Samlet omkostning for skader
+- `total_subscription_cost`: Samlet omkostning for abonnementet
+- `total_price`: Samlet pris
+- `timestamp`: Tidsstempel for beregningen
 
-## Future Improvements
-- Add more detailed error handling for external service failures.
-- Improve JWT token management with refresh tokens.
-- Add unit tests and integration tests.
+## Miljøvariabler
+- `DB_PATH`: Stien til SQLite-databasen (standard: `calculation_service.db`).
+- `KEY`: JWT-hemmelig nøgle til autentificering.
 
-## License
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+## Fejlhåndtering
+Tjenesten håndterer fejl som f.eks.:
+- Problemer med eksterne tjenester (f.eks. skadetjeneste eller abonnementstjeneste).
+- Ugyldige inputdata.
+- Databasefejl.
+
+## Licens
+Dette projekt er licenseret under MIT-licensen.
+
